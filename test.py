@@ -48,6 +48,17 @@ def test_piles_that_can_receive_color():
     assert board.piles_that_can_receive_color(Azul.RED) == [3, 4]
     assert board.piles_that_can_receive_color(Azul.BLACK) == [2, 3, 4]
 
+def test_available_actions():
+    game = Azul()
+    board = game.boards[game.player]
+    actions = game.available_actions(board, game.factories, game.floor)
+    for (color, factory_or_floor, pile) in actions:
+        if type(factory_or_floor) == TileFactory:
+            assert color in factory_or_floor.tiles
+
+    print(sorted(actions, key=lambda item: (item[0], item[1].tiles, item[2])))
+
+
 # def test_best_future_reward():
     # ai = NimAI()
     # assert ai.best_future_reward([1,3,5,7]) == 0

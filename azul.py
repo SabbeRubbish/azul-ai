@@ -3,8 +3,10 @@ import random
 import time
 import sys
 
+random.seed(0)
+
 class TileFactory():
-    def __init__(self):
+    def __init__(self, is_floor = False):
         """
         Initializes a set of tiles
         Consists of:
@@ -12,6 +14,7 @@ class TileFactory():
         - any tile can be of either color
         """
         self.tiles = []
+        self.is_floor = is_floor
 
         self.produce_tiles()
 
@@ -19,7 +22,10 @@ class TileFactory():
         """
         Produces 4 tiles
         """
-        self.tiles = random.choices([Azul.BLUE, Azul.RED, Azul.YELLOW, Azul.WHITE, Azul.BLACK], k=4)
+        if not self.is_floor:
+            self.tiles = random.choices([Azul.BLUE, Azul.RED, Azul.YELLOW, Azul.WHITE, Azul.BLACK], k=4)
+        else:
+            self.tiles = [Azul.START_PLAYER_TILE]
 
     def has_tiles(self):
         return len(self.tiles)
@@ -31,6 +37,19 @@ class TileFactory():
         result = self.tiles.count(color)
         self.tiles.remove(color)
         return result
+
+    def drop_tiles_on_floor(self, color, num):
+        """
+        Adds these tiles to the floor
+        """
+        if not self.is_floor:
+            raise TypeError("This factory is not the floor and tiles can't be added to it!")
+        self.tiles += [color]*num
+
+    def __str__(self):
+        return "".join(self.tiles)
+    def __repr__(self):
+        return self.__str__()
 
 class PlayerBoard():
     def __init__(self, difficulty = 0):
@@ -140,7 +159,7 @@ class Azul():
         self.player = 0
         self.winner = None
         self.factories = [TileFactory() for p in range(1, num_players + 5)]
-        self.floor = [Azul.START_PLAYER_TILE]
+        self.floor = TileFactory(True)
         self.difficulty = difficulty
 
     @classmethod
@@ -158,13 +177,15 @@ class Azul():
         for factory in [f for f in factories if f.has_tiles()]:
             colors = set(factory.tiles)
             for color in colors:
-                if len(board.piles_that_can_receive_color(color)) > 0:
-                    actions.add((color, factory))
+                for pile in board.piles_that_can_receive_color(color):
+                    actions.add((color, factory, pile))
         
-        floor_colors = set(floor)
+        floor_colors = set(floor.tiles)
         for color in floor_colors:
-            if len(board.piles_that_can_receive_color(color)) > 0:
-                actions.add(color, -1)
+            if color == Azul.START_PLAYER_TILE:
+                continue # Can't pick up start tile alone
+            for pile in board.piles_that_can_receive_color(color):
+                actions.add((color, floor, pile))
 
         return actions
 
