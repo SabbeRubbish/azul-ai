@@ -1,4 +1,4 @@
-from azul import Azul, PlayerBoard
+from azul import Azul, PlayerBoard, TileFactory
 import pytest
 
 def test_save_tiles_to_pile():
@@ -17,7 +17,17 @@ def test_save_tiles_to_pile():
     with pytest.raises(ValueError):
         board.save_tiles_to_pile(2, Azul.BLACK, 1)
     assert board.piles[2] == {"color": Azul.WHITE, "count": 1}
-    print(board)
+
+def test_save_tiles_to_pile():
+    board = PlayerBoard()
+    board.wall[0][1] = Azul.BLUE
+    with pytest.raises(OverflowError):
+        board.save_tiles_to_pile(0, Azul.BLUE, 1)
+    board.save_tiles_to_pile(0, Azul.RED, 1)
+
+def test_tile_factory():
+    fac = TileFactory()
+    assert len(fac.tiles) == 4
 
 # def test_best_future_reward():
     # ai = NimAI()

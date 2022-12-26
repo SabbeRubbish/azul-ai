@@ -3,14 +3,21 @@ import random
 import time
 import sys
 
-class TileSet():
-    def __init__(self, initial={}):
+class TileFactory():
+    def __init__(self):
         """
         Initializes a set of tiles
         Consists of:
         - maximum 4 tiles
         - any tile can be of either color
         """
+        self.produce_tiles()
+
+    def produce_tiles(self):
+        """
+        Produces 4 tiles
+        """
+        self.tiles = random.choices([Azul.BLUE, Azul.RED, Azul.YELLOW, Azul.WHITE, Azul.BLACK], k=4)
 
 class PlayerBoard():
     def __init__(self, difficulty = 0):
@@ -46,7 +53,6 @@ class PlayerBoard():
     """
     def save_tiles_to_pile(self, pileNumber, tileColor, numberOfTiles):
         pile = self.piles[pileNumber]
-        print(pile, tileColor, numberOfTiles)
         if pile["count"] + numberOfTiles > pileNumber + 1:
             raise OverflowError(f"Pile {pileNumber} is at maximum capacity")
         if pile["count"] > 0 and not pile["color"] == tileColor:
@@ -54,7 +60,9 @@ class PlayerBoard():
         # Check other tiles don't have the same color
         if tileColor in [self.piles[p]["color"] for p in self.piles if not p == pile]:
             raise ValueError("This color is already present in another pile")
-            
+        # Check that this pile doesn't correspond to a line in the wall that already has this color set
+        if tileColor in self.wall[pileNumber]:
+            raise OverflowError(f"This color is already present on the wall at line {pileNumber}")
 
         pile["count"] += numberOfTiles
         pile["color"] = tileColor
@@ -67,7 +75,7 @@ class Azul():
     WHITE = "⬜"
     EMPTY = "▪️"
 
-    def __init__(self, initial=[1, 3, 5, 7]):
+    def __init__(self, num_players = 2, difficulty = 0):
         """
         Initialize game board.
         Each game board has
@@ -79,9 +87,17 @@ class Azul():
             - 'floor': tiles that fell on the floor (middle of the board) - can be any number of different colors
             - 'difficuly': 0 for standard tile board, 1 for no predefined colors allowed on the board
         """
-        self.piles = initial.copy()
+        if num_players > 4 or num_players < 2:
+            raise ValueError("Number of players must be 2, 3 or 4")
+        if difficulty not in [0, 1]:
+            raise ValueError("Difficulty must be either 0 or 1")
+
+        self.boards = [PlayerBoard(difficulty) for p in range(1, num_players)]
+        self.factories = [TileFactory() for p in range(1, num_players + 5)]
         self.player = 0
         self.winner = None
+        self.floor = []
+        self.difficulty = difficulty
 
     @classmethod
     def available_actions(cls, piles):
