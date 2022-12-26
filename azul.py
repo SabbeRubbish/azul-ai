@@ -11,6 +11,8 @@ class TileFactory():
         - maximum 4 tiles
         - any tile can be of either color
         """
+        self.tiles = []
+
         self.produce_tiles()
 
     def produce_tiles(self):
@@ -18,6 +20,17 @@ class TileFactory():
         Produces 4 tiles
         """
         self.tiles = random.choices([Azul.BLUE, Azul.RED, Azul.YELLOW, Azul.WHITE, Azul.BLACK], k=4)
+
+    def has_tiles(self):
+        return len(self.tiles)
+
+    def take_tiles(self, color):
+        """
+        Takes all tiles of the given color. Returns the number of tiles of that color.
+        """
+        result = self.tiles.count(color)
+        self.tiles.remove(color)
+        return result
 
 class PlayerBoard():
     def __init__(self, difficulty = 0):
@@ -27,18 +40,46 @@ class PlayerBoard():
         - a 5x5 2D wall
         - 1, 2, 3, 4, 5 wait piles that allow you to save tiles for use on the wall
         - difficulty: 0 for standard tile board, 1 for no predefined colors allowed on the board
+        - foul tiles: tiles that are too many
         """
-        self.difficulty = difficulty
         self.wall = [[Azul.EMPTY]*5 for i in range(5)]
         self.allowed_colors = [[Azul.EMPTY]*5 for i in range(5)]
         self.piles = {i:{"color": Azul.EMPTY, "count" :0} for i in range(5)}
-        color_array = [Azul.BLUE, Azul.YELLOW, Azul.RED, Azul.BLACK, Azul.WHITE]
+        self.difficulty = difficulty
+        self.foul_tiles = []
         
+        color_array = [Azul.BLUE, Azul.YELLOW, Azul.RED, Azul.BLACK, Azul.WHITE]
         # Initialize the board allowed colors
         if self.difficulty == 0:
             for i in range(5):
                 self.allowed_colors[i] = color_array
                 color_array.insert(0, color_array.pop(-1))
+
+    def piles_that_can_receive_color(self, color):
+        """
+        Returns a list of piles to which the given color can be added
+        This depends on 
+            whether there is already a pile of that color and it isn't full
+            AND 
+            whether an empty pile could be used (but that pile should not have )
+        """
+        allowed_piles = []
+        for p in self.piles:
+            pile = self.piles[p]
+            # Has tiles already of DIFFERENT color -> skip pile
+            if pile["count"] > 0 and not pile["color"] == color:
+                # print(f"pilecount {pile['count']} > 0 and not pilecolor {pile['color']} == {color}")
+                continue
+            # Has tiles already of SAME color and NOT full yet
+            if pile["count"] > 0 and pile["color"] == color and pile["count"] < p+1:
+                # print(f"pilecount {pile['count']} > 0 and colors match and pilecount < {p+1}")
+                allowed_piles.append(p)
+
+            # Has no tiles yet AND wall still allows this tile
+            if pile["count"] == 0 and not color in self.wall[p]:
+                allowed_piles.append(p)
+        
+        return allowed_piles
 
     def __str__(self):
         result = ""
@@ -58,7 +99,7 @@ class PlayerBoard():
         if pile["count"] > 0 and not pile["color"] == tileColor:
             raise ValueError("This color is not allowed on this pile anymore")
         # Check other tiles don't have the same color
-        if tileColor in [self.piles[p]["color"] for p in self.piles if not p == pile]:
+        if tileColor in [self.piles[p]["color"] for p in self.piles if not p == pileNumber]:
             raise ValueError("This color is already present in another pile")
         # Check that this pile doesn't correspond to a line in the wall that already has this color set
         if tileColor in self.wall[pileNumber]:
@@ -74,6 +115,8 @@ class Azul():
     BLACK = "⬛"
     WHITE = "⬜"
     EMPTY = "▪️"
+    START_PLAYER_TILE = "1️⃣"
+
 
     def __init__(self, num_players = 2, difficulty = 0):
         """
@@ -93,25 +136,36 @@ class Azul():
             raise ValueError("Difficulty must be either 0 or 1")
 
         self.boards = [PlayerBoard(difficulty) for p in range(1, num_players)]
-        self.factories = [TileFactory() for p in range(1, num_players + 5)]
+        self.num_players = num_players
         self.player = 0
         self.winner = None
-        self.floor = []
+        self.factories = [TileFactory() for p in range(1, num_players + 5)]
+        self.floor = [Azul.START_PLAYER_TILE]
         self.difficulty = difficulty
 
     @classmethod
-    def available_actions(cls, piles):
+    def available_actions(cls, board, factories, floor):
         """
-        Nim.available_actions(piles) takes a 'piles' list as input
-        and returns all of the available actions '(i, j)' in that state.
+        available_actions(piles) returns all of the available actions '(i, j, k)' in that state.
 
-        Action '(i, j)' represents the action of removing 'j' items
-        from pile 'i' (where piles are 0-indexed).
+        Action '(i, j, k)' represents the action of removing all items of color 'j'
+        from factory 'i' (where factories are 0-indexed, -1 represents the floor) and adding
+        them to pile k of this player's board
+
+        STATE = always the current board, all factories and the floor
         """
         actions = set()
-        for i, pile in enumerate(piles):
-            for j in range(1, pile + 1):
-                actions.add((i, j))
+        for factory in [f for f in factories if f.has_tiles()]:
+            colors = set(factory.tiles)
+            for color in colors:
+                if len(board.piles_that_can_receive_color(color)) > 0:
+                    actions.add((color, factory))
+        
+        floor_colors = set(floor)
+        for color in floor_colors:
+            if len(board.piles_that_can_receive_color(color)) > 0:
+                actions.add(color, -1)
+
         return actions
 
     @classmethod

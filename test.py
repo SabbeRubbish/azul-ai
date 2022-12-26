@@ -29,6 +29,25 @@ def test_tile_factory():
     fac = TileFactory()
     assert len(fac.tiles) == 4
 
+def test_piles_that_can_receive_color():
+    game = Azul()
+    board = game.boards[game.player]
+    assert board.piles_that_can_receive_color(Azul.BLUE) == [0, 1, 2, 3, 4]
+    assert board.piles_that_can_receive_color(Azul.RED) == [0, 1, 2, 3, 4]
+    assert board.piles_that_can_receive_color(Azul.YELLOW) == [0, 1, 2, 3, 4]
+    assert board.piles_that_can_receive_color(Azul.WHITE) == [0, 1, 2, 3, 4]
+    assert board.piles_that_can_receive_color(Azul.BLACK) == [0, 1, 2, 3, 4]
+
+    board.save_tiles_to_pile(0, Azul.BLUE, 1)
+    assert board.piles_that_can_receive_color(Azul.BLUE) == [1, 2, 3, 4]
+    board.save_tiles_to_pile(1, Azul.RED, 1)
+    assert board.piles_that_can_receive_color(Azul.RED) == [1, 2, 3, 4]
+    board.save_tiles_to_pile(1, Azul.RED, 1)
+    assert board.piles_that_can_receive_color(Azul.RED) == [2, 3, 4]
+    board.save_tiles_to_pile(2, Azul.BLACK, 1)
+    assert board.piles_that_can_receive_color(Azul.RED) == [3, 4]
+    assert board.piles_that_can_receive_color(Azul.BLACK) == [2, 3, 4]
+
 # def test_best_future_reward():
     # ai = NimAI()
     # assert ai.best_future_reward([1,3,5,7]) == 0
