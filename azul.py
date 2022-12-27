@@ -66,6 +66,7 @@ class PlayerBoard():
         self.piles = {i:{"color": Azul.EMPTY, "count" :0} for i in range(5)}
         self.difficulty = difficulty
         self.foul_tiles = []
+        self.score = 0
         
         color_array = [Azul.BLUE, Azul.YELLOW, Azul.RED, Azul.BLACK, Azul.WHITE]
         # Initialize the board allowed colors
@@ -99,6 +100,9 @@ class PlayerBoard():
                 allowed_piles.append(p)
         
         return allowed_piles
+
+    def has_entire_horizontal_row(self):
+        return any( (not any(t == Azul.EMPTY for t in row)) for row in self.wall)
 
     def __str__(self):
         result = ""
@@ -136,7 +140,6 @@ class Azul():
     EMPTY = "▪️"
     START_PLAYER_TILE = "1️⃣"
 
-
     def __init__(self, num_players = 2, difficulty = 0):
         """
         Initialize game board.
@@ -165,7 +168,7 @@ class Azul():
     @classmethod
     def available_actions(cls, board, factories, floor):
         """
-        available_actions(piles) returns all of the available actions '(i, j, k)' in that state.
+        available_actions(piles) returns all of the available actions '(i, j, k)' in that state (board, factories, floor).
 
         Action '(i, j, k)' represents the action of removing all items of color 'j'
         from factory 'i' (where factories are 0-indexed, -1 represents the floor) and adding
@@ -189,43 +192,79 @@ class Azul():
 
         return actions
 
-    @classmethod
-    def other_player(cls, player):
+    def next_player(self):
         """
-        Nim.other_player(player) returns the player that is not
-        'player'. Assumes 'player' is either 0 or 1.
+        Switch the current player to the next player.
         """
-        return 0 if player == 1 else 1
-
-    def switch_player(self):
-        """
-        Switch the current player to the other player.
-        """
-        self.player = Nim.other_player(self.player)
+        self.player = (self.player + 1) % self.num_players
 
     def move(self, action):
         """
         Make the move 'action' for the current player.
-        'action' must be a tuple '(i, j)'.
+        'action' must be a tuple '(i, j, k)' where i is the color to remove from factory j (-1 for the floor)
+        to pile k
         """
-        pile, count = action
+        color, factory, pile = action
 
         # Check for errors
         if self.winner is not None:
             raise Exception("Game already won")
-        elif pile < 0 or pile >= len(self.piles):
+        if len(factory.tiles) <= 0:
+            raise Exception("Selected factory has no tiles left")
+        if pile < 0 or pile >= len(self.piles):
             raise Exception("Invalid pile")
-        elif count < 1 or count > self.piles[pile]:
-            raise Exception("Invalid number of objects")
+        if not action in self.available_actions(board, self.factories, self.floor):
+            raise Exception("Invalid action")
 
-        # Update pile
-        self.piles[pile] -= count
-        self.switch_player()
+        board = self.boards[self.player]
+
+        # Update board
+        # 1. Set the color (in case it wasn't set yet)
+        board.piles[pile]["color"] = color
+        # 2. Take tiles from the factory
+        count = factory.take_tiles(color)
+        # 3. Add them to the board
+        board.piles[pile]["count"] += count
+        # 4. If taken from the floor
+        if factory == self.floor and Azul.START_PLAYER_TILE in self.floor.tiles:
+            # Add the START PLAYER tile to the board and remove it from the floor
+            self.floor.remove(Azul.START_PLAYER_TILE)
+            board.foul_tiles.append(Azul.START_PLAYER_TILE)
+        
+        self.next_player()
+        if self.player == 0:
+            self.score_round()
 
         # Check for a winner
-        if all(pile == 0 for pile in self.piles):
-            self.winner = self.player
+        if self.is_end_game():
+            self.score_end_game()
+        
+        self.winner = max(self.boards, key = lambda b: b.score)
 
+    def is_end_game(self):
+        return any(board.has_entire_horizontal_row for board in self.boards)
+
+    def score_round(self):
+        for board in self.boards:
+            # Go pile by pile
+            added_score = 0
+            for p in board.piles:
+                pile = board.piles[p]
+                pile_count = pile["count"]
+                pile_color = pile["color"]
+                # If the pile is full, shift to the wall
+                if pile_count == p + 1:
+                    # Shift to the wall
+                    idx = board.allowed_colors[p].index(pile_color)
+                    board.wall[p][idx] = pile_color
+                    # Empty the pile
+                    pile["count"] = 0
+                    pile["color"] = Azul.EMPTY
+
+                    # Now score
+                    # TODO
+
+    def score_end_game(self):
 
 class NimAI():
 

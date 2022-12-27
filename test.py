@@ -56,8 +56,20 @@ def test_available_actions():
         if type(factory_or_floor) == TileFactory:
             assert color in factory_or_floor.tiles
 
-    print(sorted(actions, key=lambda item: (item[0], item[1].tiles, item[2])))
+    # l = sorted(list(actions), key=lambda item: (item[0], item[1].tiles, item[2]))
+    # print(l)
 
+def test_has_entire_horizontal_row():
+    game = Azul()
+    board = game.boards[game.player]
+    assert not board.has_entire_horizontal_row()
+    board.wall[0][0] = Azul.BLUE
+    board.wall[0][1] = Azul.RED
+    board.wall[0][2] = Azul.BLACK
+    board.wall[0][3] = Azul.WHITE
+    assert not board.has_entire_horizontal_row()
+    board.wall[0][4] = Azul.YELLOW
+    assert board.has_entire_horizontal_row()
 
 # def test_best_future_reward():
     # ai = NimAI()
